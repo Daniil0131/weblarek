@@ -203,3 +203,7 @@ Presenter - презентер содержит основную логику п
 **Методы класса:**
 - `getProducts(): Promise<IProduct[]>` - выполняет GET-запрос к эндпоинту `/product/`, получает массив товаров с сервера и возвращает его;
 - `order(order: IOrder): Promise<object>` - выполняет POST-запрос к эндпоинту `/order/` и отправляет данные заказа на сервер.
+
+
+---
+https://github.com/Daniil0131/weblarek
