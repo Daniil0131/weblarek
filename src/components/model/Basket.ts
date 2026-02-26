@@ -31,4 +31,11 @@ export class Basket {
   has(id: string): boolean {
     return this.items.some((item) => item.id === id);
   }
+  toggle(item: IProduct): void {
+    if (this.has(item.id)) {
+      this.remove(item);
+    } else {
+      this.add(item);
+  }
+}
 }

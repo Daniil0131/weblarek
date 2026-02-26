@@ -1,59 +1,28 @@
 import './scss/styles.scss';
-
-import { apiProducts } from './utils/data';
 import { API_URL } from './utils/constants';
-
 import { Api } from './components/base/Api';
-
+import { LarekApi } from './components/base/LarekApi';
+import { EventEmitter } from './components/base/Events';
 import { Products } from './components/model/Products';
 import { Basket } from './components/model/Basket';
 import { Buyer } from './components/model/Buyer';
-import { LarekApi } from './components/base/LarekApi';
+import { ProductsModel } from './components/model/ProductsModel';
+import { BasketModel } from './components/model/BasketModel';
+import { BuyerModel } from './components/model/BuyerModel';
+import { Presenter } from './components/presenter/Presenter';
 
-const productsModel = new Products();
-const basketModel = new Basket();
-const buyerModel = new Buyer();
+const events = new EventEmitter();
 
-console.log('Каталог');
-productsModel.setItems(apiProducts.items);
-console.log('getItems:', productsModel.getItems());
-
-const first = apiProducts.items[0];
-if (first) {
-  console.log('getItemById:', productsModel.getItemById(first.id));
-  productsModel.setPreviewItem(first);
-  console.log('getPreviewItem:', productsModel.getPreviewItem());
-}
-
-console.log('Корзина');
-if (first) {
-  basketModel.add(first);
-  console.log('getItems:', basketModel.getItems());
-  console.log('getCount:', basketModel.getCount());
-  console.log('has:', basketModel.has(first.id));
-  console.log('getTotal:', basketModel.getTotal());
-  basketModel.remove(first);
-  console.log('после remove:', basketModel.getItems());
-}
-basketModel.clear();
-console.log('после clear:', basketModel.getItems());
-
-console.log('Покупатель');
-buyerModel.setData({ payment: 'card' });
-buyerModel.setData({ address: 'СПб, Невский 1' });
-buyerModel.setData({ email: 'test@test.ru', phone: '+79990000000' });
-console.log('getData:', buyerModel.getData());
-console.log('validate:', buyerModel.validate());
-buyerModel.clear();
-console.log('после clear:', buyerModel.getData());
-
-console.log('сервер');
 const api = new Api(API_URL);
 const larekApi = new LarekApi(api);
 
-larekApi.getProducts()
-  .then((items) => {
-    productsModel.setItems(items);
-    console.log('Каталог с сервера:', productsModel.getItems());
-  })
-  .catch((err) => console.error('Ошибка запроса', err));
+const productsCore = new Products();
+const basketCore = new Basket();
+const buyerCore = new Buyer();
+
+const productsModel = new ProductsModel(events, productsCore);
+const basketModel = new BasketModel(events, basketCore);
+const buyerModel = new BuyerModel(events, buyerCore);
+
+const presenter = new Presenter(events, productsModel, basketModel as any, buyerModel as any, larekApi);
+presenter.start();
