@@ -1,17 +1,22 @@
-import { IProduct } from "../../types";
 import { categoryMap } from "../../utils/constants";
 import { ensureElement } from "../../utils/utils";
 import { Card } from "./Card";
 
-export type TCardPreview = Pick<IProduct, "title" | "price" | "image" | "category" | "description">;
-
-
 type CategoryKey = keyof typeof categoryMap;
+
+export type TCardPreview = {
+  title: string;
+  price: string;
+  categoryOther: string;
+  text: string;
+  image: { src: string; alt: string };
+  buttonText: string;
+  buttonDisabled: boolean;
+};
 
 export class CardPreview extends Card<TCardPreview> {
   protected categoryElement: HTMLElement;
   protected textElement: HTMLElement;
-  protected basketButton: HTMLButtonElement;
   protected imageElement: HTMLImageElement;
   protected buttonElement: HTMLButtonElement;
 
@@ -20,22 +25,20 @@ export class CardPreview extends Card<TCardPreview> {
 
     this.categoryElement = ensureElement<HTMLElement>(".card__category", this.container);
     this.textElement = ensureElement<HTMLElement>(".card__text", this.container);
-    this.basketButton = ensureElement<HTMLButtonElement>(".card__button", this.container);
     this.imageElement = ensureElement<HTMLImageElement>(".card__image", this.container);
-    this.buttonElement = ensureElement<HTMLButtonElement>('.card__button', this.container);
-    if (actions?.onClick) {
-      this.basketButton.addEventListener("click", actions.onClick);
-    }
+    this.buttonElement = ensureElement<HTMLButtonElement>(".card__button", this.container);
+
+    this.buttonElement.addEventListener("click", (evt) => {
+      if (this.buttonElement.disabled) return;
+      actions?.onClick?.(evt);
+    });
   }
 
   set categoryOther(value: string) {
     this.categoryElement.textContent = value;
 
     for (const key in categoryMap) {
-      this.categoryElement.classList.toggle(
-        categoryMap[key as CategoryKey],
-        key === value
-      );
+      this.categoryElement.classList.toggle(categoryMap[key as CategoryKey], key === value);
     }
   }
 
@@ -43,10 +46,15 @@ export class CardPreview extends Card<TCardPreview> {
     this.textElement.textContent = value;
   }
 
-  set image(value: string) {
-    this.setImage(this.imageElement, value, this.title);
+  set image(value: { src: string; alt: string }) {
+    this.setImage(this.imageElement, value.src, value.alt);
   }
+
   set buttonText(value: string) {
     this.buttonElement.textContent = value;
+  }
+
+  set buttonDisabled(value: boolean) {
+    this.buttonElement.disabled = value;
   }
 }

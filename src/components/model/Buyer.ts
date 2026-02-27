@@ -1,4 +1,5 @@
-import { IBuyer } from '../../types/index';
+import type { IBuyer } from '../../types/index';
+import type { IEvents } from '../base/Events';
 
 export class Buyer {
   private data: IBuyer = {
@@ -8,8 +9,11 @@ export class Buyer {
     address: '',
   };
 
+  constructor(private events: IEvents) {}
+
   setData(payload: Partial<IBuyer>): void {
     this.data = { ...this.data, ...payload };
+    this.events.emit('buyer:changed');
   }
 
   getData(): IBuyer {
@@ -23,6 +27,7 @@ export class Buyer {
       phone: '',
       address: '',
     };
+    this.events.emit('buyer:changed');
   }
 
   validate(): Partial<Record<keyof IBuyer, string>> {

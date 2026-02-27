@@ -23,11 +23,13 @@ export class OrderForm extends Form<IOrderFormData> {
     this.cashButton = ensureElement<HTMLButtonElement>('button[name="cash"]', this.form);
     this.addressInput = ensureElement<HTMLInputElement>('input[name="address"]', this.form);
 
-    this.cardButton.addEventListener("click", () => {
+    this.cardButton.addEventListener("click", (e) => {
+      e.preventDefault();
       this.events.emit("form:change", { form: this.form.name, field: "payment", value: "card" });
     });
 
-    this.cashButton.addEventListener("click", () => {
+    this.cashButton.addEventListener("click", (e) => {
+      e.preventDefault();
       this.events.emit("form:change", { form: this.form.name, field: "payment", value: "cash" });
     });
   }

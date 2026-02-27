@@ -3,14 +3,15 @@ import { CDN_URL } from "../../utils/constants";
 import { ensureElement } from "../../utils/utils";
 import { EventEmitter } from "../base/Events";
 import { LarekApi } from "../base/LarekApi";
-import { SuccessView } from "../model/SuccessView";
-import { Header } from "../model/Header";
-import { BasketComponent } from "../model/BasketComponent";
-import { CardCatalog } from "../model/CardCatalog";
-import { CardPreview } from "../model/CardPreview";
-import { OrderForm } from "../model/OrderForm";
-import { ContactsForm } from "../model/ContactsForm";
-import type { FormChangePayload } from "../model/Form";
+import { SuccessView } from "../view/SuccessView";
+import { Header } from "../view/Header";
+import { BasketComponent } from "../view/BasketComponent";
+import { CardCatalog } from "../view/CardCatalog";
+import { CardPreview } from "../view/CardPreview";
+import { OrderForm } from "../view/OrderForm";
+import { ContactsForm } from "../view/ContactsForm";
+import type { FormChangePayload } from "../view/Form";
+import { Modal } from "../view/Modal";
 
 type ProductsLike = {
   setItems(items: IProduct[]): void;
@@ -20,20 +21,19 @@ type ProductsLike = {
   getPreviewItem(): IProduct | null;
 };
 
-type BasketChangedPayload = { items: IProduct[]; total: number; count: number };
-
 type BasketLike = {
   has(id: string): boolean;
-  toggle(item: IProduct): void;
+  add(item: IProduct): void;
   remove(item: IProduct): void;
   clear(): void;
   getItems(): IProduct[];
   getTotal(): number;
+  getCount(): number;
 };
 
 type BuyerLike = {
   setData(data: Record<string, unknown>): void;
-  validate(): string[] | string;
+  validate(): Partial<Record<string, string>>;
   getData(): any;
   clear?(): void;
 };
@@ -51,9 +51,6 @@ function formatPrice(price: number | null): string {
 export class Presenter {
   private successTemplate: HTMLTemplateElement;
   private galleryEl: HTMLElement;
-  private modalEl: HTMLElement;
-  private modalContentEl: HTMLElement;
-  private modalCloseBtn: HTMLButtonElement;
 
   private cardCatalogTemplate: HTMLTemplateElement;
   private cardPreviewTemplate: HTMLTemplateElement;
@@ -64,12 +61,10 @@ export class Presenter {
 
   private basketView: BasketComponent;
   private header: Header;
+  private modal: Modal;
 
   private orderFormView: OrderForm | null = null;
   private contactsFormView: ContactsForm | null = null;
-  private activeFormView: { valid: boolean; errors: string } | null = null;
-
-  private isBasketOpen = false;
 
   constructor(
     private events: EventEmitter,
@@ -80,9 +75,6 @@ export class Presenter {
   ) {
     this.galleryEl = ensureElement<HTMLElement>(".gallery");
     this.successTemplate = ensureElement<HTMLTemplateElement>("#success");
-    this.modalEl = ensureElement<HTMLElement>("#modal-container");
-    this.modalContentEl = ensureElement<HTMLElement>(".modal__content", this.modalEl);
-    this.modalCloseBtn = ensureElement<HTMLButtonElement>(".modal__close", this.modalEl);
 
     this.cardCatalogTemplate = ensureElement<HTMLTemplateElement>("#card-catalog");
     this.cardPreviewTemplate = ensureElement<HTMLTemplateElement>("#card-preview");
@@ -97,16 +89,17 @@ export class Presenter {
     const basketNode = cloneTemplate<HTMLElement>(this.basketTemplate);
     this.basketView = new BasketComponent(this.events, basketNode);
 
+    const modalEl = ensureElement<HTMLElement>("#modal-container");
+    this.modal = new Modal(this.events, modalEl);
+
     this.bindHandlers();
-    this.events.on("success:close", () => this.closeModal());
-  }
 
-  private openSuccess(total: number) {
-    const node = cloneTemplate<HTMLElement>(this.successTemplate);
-    const success = new SuccessView(this.events, node);
+    this.events.on("success:close", () => this.modal.close());
 
-    this.modalContentEl.replaceChildren(success.render({ total } as any));
-    this.openModal();
+    this.events.on("modal:close", () => {
+      this.orderFormView = null;
+      this.contactsFormView = null;
+    });
   }
 
   public start() {
@@ -114,28 +107,44 @@ export class Presenter {
       .getProducts()
       .then((items: IProduct[]) => {
         this.products.setItems(items);
+
+        this.events.emit("basket:changed");
+        this.events.emit("buyer:changed");
       })
       .catch((err: unknown) => console.error("Ошибка запроса", err));
   }
 
   private bindHandlers() {
-    this.events.on<IProduct[]>("catalog:changed", (items) => this.renderCatalog(items));
+    this.events.on("catalog:changed", () => {
+      this.renderCatalog(this.products.getItems());
+    });
 
-    this.events.on<BasketChangedPayload>("basket:changed", ({ items, total, count }) => {
+    this.events.on("basket:changed", () => {
+      const items = this.basket.getItems();
+      const total = this.basket.getTotal();
+      const count = this.basket.getCount();
+
+      this.basketView.disabled = count === 0;
       this.header.counter = count;
 
-      if (this.isBasketOpen) {
-        this.renderBasket(items, total);
-      }
+      this.renderBasket(items, total);
     });
 
     this.events.on("buyer:changed", () => this.onBuyerChanged());
 
-    this.events.on<IProduct>("card:select", (item) => this.openPreview(item));
+    this.events.on<IProduct>("card:select", (item) => {
+      this.products.setPreviewItem(item);
+      this.openPreview(item);
+    });
 
-    this.events.on<IProduct>("basket:toggle", (item) => {
-      this.basket.toggle(item);
-      this.closeModal();
+    this.events.on("basket:toggle", () => {
+      const item = this.products.getPreviewItem();
+      if (!item) return;
+
+      if (this.basket.has(item.id)) this.basket.remove(item);
+      else this.basket.add(item);
+
+      this.modal.close();
     });
 
     this.events.on<IProduct>("basket:remove", (item) => {
@@ -143,42 +152,53 @@ export class Presenter {
     });
 
     this.events.on("basket:open", () => {
-      this.isBasketOpen = true;
       this.openBasket();
     });
 
     this.events.on("order:open", () => {
-      this.isBasketOpen = false;
       this.openOrder();
+      this.onBuyerChanged();
     });
 
-    this.events.on<FormChangePayload>("form:change", ({ form, field, value }) => {
-      if (form === "order") {
-        if (field === "payment") this.buyer.setData({ payment: value });
-        if (field === "address") this.buyer.setData({ address: value });
-      }
-
-      if (form === "contacts") {
-        if (field === "email") this.buyer.setData({ email: value });
-        if (field === "phone") this.buyer.setData({ phone: value });
-      }
+    this.events.on<FormChangePayload>("form:change", ({ field, value }) => {
+      this.buyer.setData({ [field]: value });
+      this.events.emit("buyer:changed");
     });
 
     this.events.on("order:submit", () => {
       this.openContacts();
+      this.onBuyerChanged();
     });
 
-    this.events.on("contacts:submit", () => {
-      const total = this.basket.getTotal();
-      this.basket.clear();
-      this.buyer.clear?.();
-      this.openSuccess(total);
-    });
+    this.events.on("contacts:submit", async () => {
+      try {
+        const buyerData = this.buyer.getData();
 
-    this.modalCloseBtn.addEventListener("click", () => this.closeModal());
-    this.modalEl.addEventListener("click", (e) => {
-      if (e.target === this.modalEl) this.closeModal();
+        const order = {
+          items: this.basket.getItems().map((item) => item.id),
+          total: this.basket.getTotal(),
+          payment: buyerData.payment,
+          email: buyerData.email,
+          phone: buyerData.phone,
+          address: buyerData.address,
+        };
+
+        const response = await this.api.order(order);
+
+        this.basket.clear();
+        this.buyer.clear?.();
+
+        this.openSuccess(response.total);
+      } catch (err) {
+        console.error("Ошибка оформления заказа:", err);
+      }
     });
+  }
+
+  private openSuccess(total: number) {
+    const node = cloneTemplate<HTMLElement>(this.successTemplate);
+    const success = new SuccessView(this.events, node);
+    this.modal.open(success.render({ total } as any));
   }
 
   private renderCatalog(items: IProduct[]) {
@@ -201,30 +221,29 @@ export class Presenter {
 
   private openPreview(item: IProduct) {
     const inBasket = this.basket.has(item.id);
+    const isPriceless = item.price === null;
 
-    const preview = new CardPreview(
-      cloneTemplate(this.cardPreviewTemplate),
-      { onClick: () => this.events.emit("basket:toggle", item) }
-    );
+    const preview = new CardPreview(cloneTemplate(this.cardPreviewTemplate), {
+      onClick: () => this.events.emit("basket:toggle"),
+    });
 
     const node = preview.render({
       title: item.title,
       price: formatPrice(item.price),
-      image: `${CDN_URL}${item.image}`,
+      image: { src: `${CDN_URL}${item.image}`, alt: item.title },
       categoryOther: item.category,
       text: item.description,
-      buttonText: inBasket ? "Удалить из корзины" : "В корзину",
-    } as any);
+      buttonText: isPriceless ? "Недоступно" : inBasket ? "Удалить из корзины" : "В корзину",
+      buttonDisabled: isPriceless,
+    });
 
-    this.modalContentEl.replaceChildren(node);
-    this.openModal();
+    this.modal.open(node);
   }
 
   private openBasket() {
-    this.modalContentEl.replaceChildren(this.basketView.element);
-    this.openModal();
+    this.modal.open(this.basketView.element);
 
-    this.renderBasket(this.basket.getItems(), this.basket.getTotal());
+    this.events.emit("basket:changed");
   }
 
   private renderBasket(items: IProduct[], total: number) {
@@ -236,7 +255,7 @@ export class Presenter {
       ensureElement<HTMLElement>(".card__price", li).textContent = formatPrice(item.price);
 
       const delBtn = ensureElement<HTMLButtonElement>(".basket__item-delete", li);
-      delBtn.onclick = () => this.events.emit("basket:remove", item);
+      delBtn.addEventListener("click", () => this.events.emit("basket:remove", item));
 
       return li;
     });
@@ -251,14 +270,12 @@ export class Presenter {
     this.orderFormView = new OrderForm(this.events, formNode);
     this.contactsFormView = null;
 
-    this.activeFormView = this.orderFormView;
     this.orderFormView.errors = "";
     this.orderFormView.valid = false;
 
     this.syncFormsFromBuyer();
 
-    this.modalContentEl.replaceChildren(this.orderFormView.render());
-    this.openModal();
+    this.modal.open(this.orderFormView.render());
   }
 
   private openContacts() {
@@ -267,28 +284,36 @@ export class Presenter {
     this.contactsFormView = new ContactsForm(this.events, formNode);
     this.orderFormView = null;
 
-    this.activeFormView = this.contactsFormView;
     this.contactsFormView.errors = "";
     this.contactsFormView.valid = false;
 
     this.syncFormsFromBuyer();
 
-    this.modalContentEl.replaceChildren(this.contactsFormView.render());
-    this.openModal();
+    this.modal.open(this.contactsFormView.render());
   }
 
   private onBuyerChanged() {
-    const res = this.buyer.validate();
-    const errorsText =
-      Array.isArray(res) ? res.filter(Boolean).join(", ") :
-      typeof res === "string" ? res :
-      "";
+    const errors = this.buyer.validate();
+ 
+    const keys = this.orderFormView
+      ? (["payment", "address"] as const)
+      : this.contactsFormView
+        ? (["email", "phone"] as const)
+        : ([] as const);
 
-    const isValid = errorsText.length === 0;
+    const stepErrors = keys.map((k) => errors[k]).filter(Boolean) as string[];
 
-    if (this.activeFormView) {
-      this.activeFormView.errors = errorsText;
-      this.activeFormView.valid = isValid;
+    const errorsText = stepErrors.join(", ");
+    const isValid = stepErrors.length === 0;
+
+    if (this.orderFormView) {
+      this.orderFormView.errors = errorsText;
+      this.orderFormView.valid = isValid;
+    }
+
+    if (this.contactsFormView) {
+      this.contactsFormView.errors = errorsText;
+      this.contactsFormView.valid = isValid;
     }
 
     this.syncFormsFromBuyer();
@@ -306,19 +331,5 @@ export class Presenter {
       if (typeof data.email === "string") this.contactsFormView.email = data.email;
       if (typeof data.phone === "string") this.contactsFormView.phone = data.phone;
     }
-  }
-
-  private openModal() {
-    this.modalEl.classList.add("modal_active");
-  }
-
-  private closeModal() {
-    this.modalEl.classList.remove("modal_active");
-    this.modalContentEl.replaceChildren();
-
-    this.isBasketOpen = false;
-    this.activeFormView = null;
-    this.orderFormView = null;
-    this.contactsFormView = null;
   }
 }
