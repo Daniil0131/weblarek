@@ -38,8 +38,4 @@ export class BasketComponent extends Component<IBasketComponent> {
   set disabled(value: boolean) {
     this.buttorBasket.disabled = value;
   }
-
-  public get element(): HTMLElement {
-    return this.container;
-  }
 }

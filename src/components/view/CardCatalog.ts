@@ -3,13 +3,14 @@ import { categoryMap } from "../../utils/constants";
 import { ensureElement } from "../../utils/utils";
 import { Card } from "./Card";
 
-
 interface ICardActions {
   onClick?: (evt: MouseEvent) => void;
 }
 
 type CategoryKey = keyof typeof categoryMap;
-export type TCardCatalog = Pick<IProduct, 'image' | 'category'>;
+export type TCardCatalog = Pick<IProduct, "title" | "image" | "category"> & {
+  price: string;
+};
 
 export class CardCatalog extends Card<TCardCatalog> {
   protected imageElement: HTMLImageElement;
@@ -18,18 +19,11 @@ export class CardCatalog extends Card<TCardCatalog> {
   constructor(container: HTMLElement, actions?: ICardActions) {
     super(container);
 
-    this.categoryElement = ensureElement<HTMLElement>(
-      '.card__category',
-      this.container
-    );
+    this.categoryElement = ensureElement<HTMLElement>(".card__category", this.container);
+    this.imageElement = ensureElement<HTMLImageElement>(".card__image", this.container);
 
-    this.imageElement = ensureElement<HTMLImageElement>(
-      '.card__image',
-      this.container
-    );
-    
     if (actions?.onClick) {
-      this.container.addEventListener('click', actions.onClick);
+      this.container.addEventListener("click", actions.onClick);
     }
   }
 
@@ -44,7 +38,12 @@ export class CardCatalog extends Card<TCardCatalog> {
     }
   }
 
+  set title(value: string) {
+    super.title = value;
+    this.imageElement.alt = value;
+  }
+
   set image(value: string) {
-    this.setImage(this.imageElement, value, this.getTitleForAlt());
+    this.imageElement.src = value;
   }
 }

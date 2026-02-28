@@ -60,12 +60,13 @@ export class Presenter {
   private contactsTemplate: HTMLTemplateElement;
 
   private basketView: BasketComponent;
+  private basketNode: HTMLElement;
   private header: Header;
   private modal: Modal;
 
   private orderFormView: OrderForm | null = null;
   private contactsFormView: ContactsForm | null = null;
-
+  
   constructor(
     private events: EventEmitter,
     private products: ProductsLike,
@@ -87,6 +88,7 @@ export class Presenter {
     this.header = new Header(this.events, headerEl);
 
     const basketNode = cloneTemplate<HTMLElement>(this.basketTemplate);
+    this.basketNode = basketNode;
     this.basketView = new BasketComponent(this.events, basketNode);
 
     const modalEl = ensureElement<HTMLElement>("#modal-container");
@@ -198,7 +200,7 @@ export class Presenter {
   private openSuccess(total: number) {
     const node = cloneTemplate<HTMLElement>(this.successTemplate);
     const success = new SuccessView(this.events, node);
-    this.modal.open(success.render({ total } as any));
+    this.modal.open(success.render({ total }));
   }
 
   private renderCatalog(items: IProduct[]) {
@@ -213,7 +215,7 @@ export class Presenter {
         category: item.category,
         title: item.title,
         price: formatPrice(item.price),
-      } as any);
+      });
     });
 
     this.galleryEl.replaceChildren(...cards);
@@ -241,11 +243,11 @@ export class Presenter {
   }
 
   private openBasket() {
-    this.modal.open(this.basketView.element);
+    this.modal.open(this.basketNode);
 
     this.events.emit("basket:changed");
   }
-
+    
   private renderBasket(items: IProduct[], total: number) {
     const nodes = items.map((item, index) => {
       const li = cloneTemplate<HTMLLIElement>(this.basketItemTemplate);

@@ -16,4 +16,3 @@ export abstract class Component<T> {
         return this.container;
     }
 }
-                                                                                                                                                   
