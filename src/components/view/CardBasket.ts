@@ -1,40 +1,48 @@
-import type { IProduct } from "../../types";
 import { ensureElement } from "../../utils/utils";
-import { Card } from "./Card";
+import { Component } from "../base/Component";
 import type { IEvents } from "../base/Events";
 
-export type TCardBasket = Pick<IProduct, "title" | "price"> & {
+export interface ICardBasket {
+  id: string;
   index: number;
-};
+  title: string;
+  price: string;
+}
 
-export class CardBasket extends Card<TCardBasket> {
-  protected indexElement: HTMLElement;
-  protected deleteButton: HTMLButtonElement;
+export class CardBasket extends Component<ICardBasket> {
+  private indexEl: HTMLElement;
+  private titleEl: HTMLElement;
+  private priceEl: HTMLElement;
+  private deleteBtn: HTMLButtonElement;
 
-  constructor(
-    protected events: IEvents,
-    container: HTMLElement,
-    private product: IProduct
-  ) {
+  constructor(private events: IEvents, container: HTMLLIElement) {
     super(container);
 
-    this.indexElement = ensureElement<HTMLElement>(
-      ".basket__item-index",
-      this.container
-    );
+    this.indexEl = ensureElement(".basket__item-index", this.container);
+    this.titleEl = ensureElement(".card__title", this.container);
+    this.priceEl = ensureElement(".card__price", this.container);
+    this.deleteBtn = ensureElement<HTMLButtonElement>(".basket__item-delete", this.container);
 
-    this.deleteButton = ensureElement<HTMLButtonElement>(
-      ".basket__item-delete",
-      this.container
-    );
-
-    this.deleteButton.addEventListener("click", () => {
-      this.events.emit("basket:remove", this.product);
+    this.deleteBtn.addEventListener("click", () => {
+      const id = this.container.dataset.id;
+      if (!id) return;
+      this.events.emit("basket:remove", { id });
     });
   }
 
-  set index(value: number) {
-    this.indexElement.textContent = String(value);
+  set id(value: string) {
+    this.container.dataset.id = value;
   }
 
+  set index(value: number) {
+    this.indexEl.textContent = String(value);
+  }
+
+  set title(value: string) {
+    this.titleEl.textContent = value;
+  }
+
+  set price(value: string) {
+    this.priceEl.textContent = value;
+  }
 }

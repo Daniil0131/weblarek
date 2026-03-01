@@ -1,6 +1,7 @@
 import { categoryMap } from "../../utils/constants";
 import { ensureElement } from "../../utils/utils";
 import { Card } from "./Card";
+import type { IEvents } from "../base/Events";
 
 type CategoryKey = keyof typeof categoryMap;
 
@@ -20,7 +21,7 @@ export class CardPreview extends Card<TCardPreview> {
   protected imageElement: HTMLImageElement;
   protected buttonElement: HTMLButtonElement;
 
-  constructor(container: HTMLElement, actions?: { onClick?: (evt: MouseEvent) => void }) {
+  constructor(private events: IEvents, container: HTMLElement) {
     super(container);
 
     this.categoryElement = ensureElement<HTMLElement>(".card__category", this.container);
@@ -28,15 +29,14 @@ export class CardPreview extends Card<TCardPreview> {
     this.imageElement = ensureElement<HTMLImageElement>(".card__image", this.container);
     this.buttonElement = ensureElement<HTMLButtonElement>(".card__button", this.container);
 
-    this.buttonElement.addEventListener("click", (evt) => {
+    this.buttonElement.addEventListener("click", () => {
       if (this.buttonElement.disabled) return;
-      actions?.onClick?.(evt);
+      this.events.emit("basket:toggle");
     });
   }
 
   set categoryOther(value: string) {
     this.categoryElement.textContent = value;
-
     for (const key in categoryMap) {
       this.categoryElement.classList.toggle(categoryMap[key as CategoryKey], key === value);
     }

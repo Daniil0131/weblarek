@@ -37,4 +37,8 @@ export class Basket {
   has(id: string): boolean {
     return this.items.some((item) => item.id === id);
   }
+  removeById(id: string): void {
+    this.items = this.items.filter(i => i.id !== id);
+    this.events.emit('basket:changed');
+  }
 }

@@ -1,9 +1,6 @@
-
 import { ensureElement } from "../../utils/utils";
 import { Component } from "../base/Component";
-
-import { IEvents } from "../base/Events";
-
+import type { IEvents } from "../base/Events";
 
 export interface IBasketComponent {
   price: string;
@@ -12,19 +9,37 @@ export interface IBasketComponent {
 
 export class BasketComponent extends Component<IBasketComponent> {
   protected basketList: HTMLElement;
-  protected buttorBasket: HTMLButtonElement;
+  protected orderButton: HTMLButtonElement;
   protected priceElement: HTMLElement;
+
+  protected emptyElement: HTMLElement;
 
   constructor(protected events: IEvents, container: HTMLElement) {
     super(container);
 
-    this.basketList = ensureElement<HTMLElement>('.basket__list', this.container);
-    this.buttorBasket = ensureElement<HTMLButtonElement>('.basket__button', this.container);
-    this.priceElement = ensureElement<HTMLElement>('.basket__price', this.container);
+    this.basketList = ensureElement<HTMLElement>(".basket__list", this.container);
+    this.orderButton = ensureElement<HTMLButtonElement>(".basket__button", this.container);
+    this.priceElement = ensureElement<HTMLElement>(".basket__price", this.container);
 
-    this.buttorBasket.addEventListener('click', () => {
-      this.events.emit('order:open');
+    this.emptyElement =
+      this.container.querySelector<HTMLElement>(".basket__empty") ??
+      this.createEmptyElement();
+
+    this.orderButton.addEventListener("click", () => {
+      this.events.emit("order:open");
     });
+  }
+
+  private createEmptyElement(): HTMLElement {
+    const p = document.createElement("p");
+    p.className = "basket__empty";
+    p.textContent = "Корзина пуста";
+    this.basketList.before(p);
+    return p;
+  }
+
+  set disabled(value: boolean) {
+    this.orderButton.disabled = value;
   }
 
   set price(value: string) {
@@ -32,10 +47,10 @@ export class BasketComponent extends Component<IBasketComponent> {
   }
 
   set items(nodes: HTMLElement[]) {
-    this.basketList.replaceChildren(...nodes);
-  }
+    const isEmpty = nodes.length === 0;
 
-  set disabled(value: boolean) {
-    this.buttorBasket.disabled = value;
+    this.emptyElement.style.display = isEmpty ? "" : "none";
+
+    this.basketList.replaceChildren(...nodes);
   }
 }
