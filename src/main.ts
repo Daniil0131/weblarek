@@ -74,7 +74,7 @@ header.counter = basket.getCount();
 function syncFormsFromBuyer() {
   const data = buyer.getData();
 
-  if (data.payment) orderForm.payment = data.payment;
+  orderForm.payment = data.payment;
   orderForm.address = data.address;
 
   contactsForm.email = data.email;

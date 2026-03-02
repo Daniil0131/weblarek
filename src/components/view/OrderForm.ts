@@ -5,7 +5,7 @@ import { Form } from "./Form";
 export type PaymentMethod = "card" | "cash";
 
 export interface IOrderFormData {
-  payment: PaymentMethod;
+  payment: PaymentMethod | null;
   address: string;
   valid: boolean;
   errors: string;
@@ -34,7 +34,7 @@ export class OrderForm extends Form<IOrderFormData> {
     });
   }
 
-  set payment(value: PaymentMethod) {
+  set payment(value: PaymentMethod | null) {
     this.cardButton.classList.toggle("button_alt-active", value === "card");
     this.cashButton.classList.toggle("button_alt-active", value === "cash");
   }
