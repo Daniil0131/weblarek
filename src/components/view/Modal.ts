@@ -22,9 +22,6 @@ export class Modal extends Component<IModalData> {
       if (e.target === this.container) this.close();
     });
 
-    document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") this.close();
-    });
   }
 
   open(content: HTMLElement) {
@@ -35,7 +32,6 @@ export class Modal extends Component<IModalData> {
   close() {
     this.isOpen = false;
     this.contentEl.replaceChildren();
-    this.events.emit("modal:close");
   }
 
   set content(value: HTMLElement) {

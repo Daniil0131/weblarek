@@ -63,12 +63,12 @@ const gallery = new Gallery(ensureElement<HTMLElement>('.gallery'));
 const orderForm = new OrderForm(events, cloneTemplate(orderTemplate));
 const contactsForm = new ContactsForm(events, cloneTemplate(contactsTemplate));
 const successView = new SuccessView(events, cloneTemplate(successTemplate));
+const previewView = new CardPreview(events, cloneTemplate(cardPreviewTemplate));
 
 basketView.disabled = basket.getCount() === 0;
 basketView.price = `${basket.getTotal()} синапсов`;
 header.counter = basket.getCount();
 
-let activeStep: 'order' | 'contacts' | null = null;
 
 
 function syncFormsFromBuyer() {
@@ -92,10 +92,14 @@ function renderBasket() {
   basketView.disabled = count === 0;
 
   const nodes = items.map((item, index) => {
-    const row = new CardBasket(events, cloneTemplate<HTMLLIElement>(basketItemTemplate));
+    const row = new CardBasket(
+    cloneTemplate<HTMLLIElement>(basketItemTemplate),
+      {
+        onRemove: () => events.emit("basket:remove", { id: item.id }),
+      }
+    );
 
     return row.render({
-      id: item.id,
       index: index + 1,
       title: item.title,
       price: formatPrice(item.price),
@@ -130,9 +134,7 @@ events.on('preview:changed', () => {
   const inBasket = basket.has(item.id);
   const isPriceless = item.price === null;
 
-  const preview = new CardPreview(events, cloneTemplate(cardPreviewTemplate));
-
-  modal.open(preview.render({
+  modal.open(previewView.render({
     title: item.title,
     price: formatPrice(item.price),
     image: { src: `${CDN_URL}${item.image}`, alt: item.title },
@@ -148,26 +150,18 @@ events.on('basket:changed', renderBasket);
 events.on('buyer:changed', () => {
   const errors = buyer.validate();
 
-  const keys =
-    activeStep === 'order'
-      ? (['payment', 'address'] as const)
-      : activeStep === 'contacts'
-        ? (['email', 'phone'] as const)
-        : ([] as const);
+  const orderKeys = ['payment', 'address'] as const;
+  const contactsKeys = ['email', 'phone'] as const;
 
-  const stepErrors = keys.map(k => errors[k]).filter(Boolean) as string[];
-  const isValid = stepErrors.length === 0;
-  const errorsText = stepErrors.join(', ');
+  const orderErrors = orderKeys.map((k) => errors[k]).filter(Boolean) as string[];
 
-  if (activeStep === 'order') {
-    orderForm.errors = errorsText;
-    orderForm.valid = isValid;
-  }
+  const contactsErrors = contactsKeys.map((k) => errors[k]).filter(Boolean) as string[];
 
-  if (activeStep === 'contacts') {
-    contactsForm.errors = errorsText;
-    contactsForm.valid = isValid;
-  }
+  orderForm.errors = orderErrors.join(', ');
+  orderForm.valid = orderErrors.length === 0;
+
+  contactsForm.errors = contactsErrors.join(', ');
+  contactsForm.valid = contactsErrors.length === 0;
 
   syncFormsFromBuyer();
 });
@@ -190,12 +184,10 @@ events.on('basket:toggle', () => {
 events.on<{ id: string }>('basket:remove', ({ id }) => basket.removeById(id));
 
 events.on('basket:open', () => {
-  renderBasket();
   modal.open(basketView.render());
 });
 
 events.on('order:open', () => {
-  activeStep = 'order';
   syncFormsFromBuyer();
   modal.open(orderForm.render());
 });
@@ -205,7 +197,6 @@ events.on<FormChangePayload>('form:change', ({ field, value }) => {
 });
 
 events.on('order:submit', () => {
-  activeStep = 'contacts';
   syncFormsFromBuyer();
   modal.open(contactsForm.render());
 });
@@ -226,7 +217,6 @@ events.on('contacts:submit', async () => {
 
     basket.clear();
     buyer.clear();
-    activeStep = null;
 
     modal.open(successView.render({ total: result.total }));
   } catch (err) {
@@ -237,7 +227,6 @@ events.on('contacts:submit', async () => {
 events.on('success:close', () => modal.close());
 
 events.on('modal:close', () => {
-  activeStep = null;
 });
 
 
