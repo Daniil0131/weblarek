@@ -197,19 +197,17 @@ events.on<FormChangePayload>('form:change', ({ field, value }) => {
 });
 
 events.on('order:submit', () => {
-  syncFormsFromBuyer();
   modal.open(contactsForm.render());
 });
 
 events.on('contacts:submit', async () => {
   try {
     const data = buyer.getData();
-    if (!data.payment) return;
 
     const result = await larekApi.order({
         items: basket.getItems().map(i => i.id),
         total: basket.getTotal(),
-        payment: data.payment,
+        payment: data.payment!,
         email: data.email,
         phone: data.phone,
         address: data.address,
@@ -225,9 +223,6 @@ events.on('contacts:submit', async () => {
 });
 
 events.on('success:close', () => modal.close());
-
-events.on('modal:close', () => {
-});
 
 
 larekApi.getProducts()

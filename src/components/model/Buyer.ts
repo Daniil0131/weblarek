@@ -10,7 +10,6 @@ export class Buyer {
   };
 
   constructor(private events: IEvents) {}
-
   setData(payload: Partial<IBuyer>): void {
     this.data = { ...this.data, ...payload };
     this.events.emit('buyer:changed');
